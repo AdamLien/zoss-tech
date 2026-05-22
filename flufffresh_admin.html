@@ -59,25 +59,20 @@
     let GAS_API_URL = ''; 
 
     document.addEventListener("DOMContentLoaded", function() {
-      // 解析網址參數
       let params = new URL(document.location.toString()).searchParams;
       
-      // 處理 LINE LIFF 開啟時附加的 liffRedirectUri 參數包裝
       if (params.has("liffRedirectUri")) {
           params = new URL(decodeURIComponent(params.get("liffRedirectUri"))).searchParams;
       }
 
-      // 檢查必要參數是否存在
       if (!params.has("liff") || !params.has("sid")) {
           showError("系統錯誤：無效的連結參數\n\n請確認網址是否包含 liff 與 sid 參數。\n範例：?liff=您的ID&sid=您的GAS_ID");
           return;
       }
 
-      // 設定變數
       MY_LIFF_ID = params.get("liff");
       GAS_API_URL = `https://script.google.com/macros/s/${params.get("sid")}/exec`;
 
-      // 參數驗證成功後開始初始化 LIFF
       initializeLiff();
     });
 
@@ -113,7 +108,6 @@
           document.getElementById('loadingText').innerText = '正在讀取試算表資料...';
           const profile = await liff.getProfile();
           
-          // 透過 API 呼叫後端
           const response = await callGasApi('getAdminData', { uid: profile.userId });
           
           if (response.success) {
@@ -143,11 +137,12 @@
           ? `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已綁定</span>`
           : `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">未綁定</span>`;
 
-        let actionButtons = '';
-        if (isBound) {
-          actionButtons = `<button onclick="shareSales('${kol.name}')" class="mt-3 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded shadow transition duration-150">轉傳業績報表</button>`;
-        } else {
-          actionButtons = `<button onclick="generatePassCode('${kol.name}')" class="mt-3 w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded shadow transition duration-150">產生/查看綁定碼</button>`;
+        // 【修改重點】：不論綁定狀態，必定顯示「轉傳業績報表」按鈕
+        let actionButtons = `<button onclick="shareSales('${kol.name}')" class="mt-3 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded shadow transition duration-150">轉傳業績報表</button>`;
+        
+        // 若未綁定，則額外在下方添加「產生邀請卡」按鈕
+        if (!isBound) {
+          actionButtons += `<button onclick="generatePassCode('${kol.name}')" class="mt-2 w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded shadow transition duration-150">產生 / 轉傳綁定邀請卡</button>`;
         }
 
         const card = `
@@ -168,14 +163,24 @@
     async function generatePassCode(kolName) {
       document.getElementById('loading').classList.remove('hidden');
       document.getElementById('mainContent').classList.add('hidden');
-      document.getElementById('loadingText').innerText = '正在產生專屬綁定碼...';
+      document.getElementById('loadingText').innerText = '正在產生專屬綁定碼與邀請卡...';
       document.getElementById('spinner').style.display = 'block';
 
       try {
         const res = await callGasApi('createPassCode', { kolName: kolName });
+        
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('mainContent').classList.remove('hidden');
+
         if (res.success) {
-          alert(`產生成功！\n請團主在機器人輸入：\n綁定 ${res.passCode}`);
-          location.reload(); // 重新整理網頁
+          if (confirm(`綁定碼產生成功！\n是否立刻將「一鍵綁定邀請卡」分享給團主？`)) {
+            if (liff.isApiAvailable('shareTargetPicker')) {
+              await liff.shareTargetPicker([res.flexMessage]);
+            } else {
+              alert("您的裝置不支援 Share Target Picker");
+            }
+          }
+          location.reload(); 
         } else {
           showError("產生失敗: " + res.message);
         }
