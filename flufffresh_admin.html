@@ -21,7 +21,7 @@
     }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4">
+<body class="bg-gray-100 min-h-screen p-4 relative">
 
   <div class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl mb-6">
     <div class="p-6 border-b-4 border-green-500">
@@ -51,12 +51,34 @@
     <div id="kolListContainer" class="space-y-4"></div>
   </div>
 
+  <!-- 【新增】專屬分享確認彈窗 (解決電腦版瀏覽器阻擋彈出視窗的問題) -->
+  <div id="shareModal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-50 p-4 items-center justify-center">
+    <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm text-center transform transition-all">
+      <h3 id="shareModalTitle" class="text-xl font-bold mb-3 text-gray-800">準備就緒</h3>
+      <p id="shareModalDesc" class="text-gray-600 text-sm mb-6 leading-relaxed">
+        為避免瀏覽器阻擋，請點擊下方按鈕手動開啟好友選單。
+      </p>
+      <div class="flex flex-col space-y-3">
+        <button id="executeShareBtn" class="w-full py-3 bg-green-500 hover:bg-green-600 rounded-xl text-white font-bold text-lg shadow-md transition duration-150">
+          🚀 開啟 LINE 好友選單
+        </button>
+        <button onclick="closeShareModal()" class="w-full py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-700 font-bold transition duration-150">
+          返回 / 取消
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ======================================================================
     // 動態變數：將透過網址參數讀取
     // ======================================================================
     let MY_LIFF_ID = ''; 
     let GAS_API_URL = ''; 
+
+    // 分享彈窗的全域變數
+    let currentShareMessages = [];
+    let reloadAfterShare = false;
 
     document.addEventListener("DOMContentLoaded", function() {
       let params = new URL(document.location.toString()).searchParams;
@@ -137,10 +159,8 @@
           ? `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已綁定</span>`
           : `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">未綁定</span>`;
 
-        // 【修改重點】：不論綁定狀態，必定顯示「轉傳業績報表」按鈕
         let actionButtons = `<button onclick="shareSales('${kol.name}')" class="mt-3 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded shadow transition duration-150">轉傳業績報表</button>`;
         
-        // 若未綁定，則額外在下方添加「產生邀請卡」按鈕
         if (!isBound) {
           actionButtons += `<button onclick="generatePassCode('${kol.name}')" class="mt-2 w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded shadow transition duration-150">產生 / 轉傳綁定邀請卡</button>`;
         }
@@ -160,6 +180,49 @@
       });
     }
 
+    // ======================================================================
+    // UI 控制：分享彈窗邏輯 (Bypass 瀏覽器 Popup Blocker)
+    // ======================================================================
+    function openShareModal(title, desc, messages, reload = false) {
+      document.getElementById('shareModalTitle').innerText = title;
+      document.getElementById('shareModalDesc').innerHTML = desc;
+      currentShareMessages = messages;
+      reloadAfterShare = reload;
+      
+      const modal = document.getElementById('shareModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeShareModal() {
+      const modal = document.getElementById('shareModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      if (reloadAfterShare) location.reload();
+    }
+
+    // 當使用者「手動點擊」分享按鈕時，才執行 ShareTargetPicker
+    document.getElementById('executeShareBtn').addEventListener('click', async function() {
+      const modal = document.getElementById('shareModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      
+      try {
+        if (liff.isApiAvailable('shareTargetPicker')) {
+          await liff.shareTargetPicker(currentShareMessages);
+        } else {
+          alert("您的裝置或瀏覽器不支援 Share Target Picker 功能\n(請確認在 LINE Developers 後台已開啟此功能)");
+        }
+      } catch(err) {
+        if(err.message.indexOf("canceled") === -1) {
+          console.error("Share Target Picker 錯誤:", err);
+        }
+      } finally {
+        if (reloadAfterShare) location.reload();
+      }
+    });
+    // ======================================================================
+
     async function generatePassCode(kolName) {
       document.getElementById('loading').classList.remove('hidden');
       document.getElementById('mainContent').classList.add('hidden');
@@ -173,14 +236,13 @@
         document.getElementById('mainContent').classList.remove('hidden');
 
         if (res.success) {
-          if (confirm(`綁定碼產生成功！\n是否立刻將「一鍵綁定邀請卡」分享給團主？`)) {
-            if (liff.isApiAvailable('shareTargetPicker')) {
-              await liff.shareTargetPicker([res.flexMessage]);
-            } else {
-              alert("您的裝置不支援 Share Target Picker");
-            }
-          }
-          location.reload(); 
+          // 不再使用 confirm()，改用我們自建的 Modal 來引導使用者點擊
+          openShareModal(
+            '✅ 綁定碼產生成功！', 
+            `已為【${kolName}】建立專屬邀請卡。<br><br><span class="text-xs text-gray-500">由於瀏覽器安全限制，請點擊下方按鈕以開啟好友分享選單。</span>`,
+            [res.flexMessage],
+            true
+          );
         } else {
           showError("產生失敗: " + res.message);
         }
@@ -206,18 +268,16 @@
           return;
         }
 
-        if (liff.isApiAvailable('shareTargetPicker')) {
-          await liff.shareTargetPicker([res.flexMessage]);
-        } else {
-          alert("您的裝置或 LINE 版本不支援 Share Target Picker 功能");
-        }
+        // 不再直接呼叫 shareTargetPicker，改用 Modal
+        openShareModal(
+          '📊 報表生成完畢', 
+          `【${kolName}】的業績報表已準備就緒。<br><br><span class="text-xs text-gray-500">由於瀏覽器安全限制，請點擊下方按鈕以開啟好友分享選單。</span>`,
+          [res.flexMessage],
+          false
+        );
+
       } catch(err) {
-        if(err.message.indexOf("canceled") === -1) {
-          showError("獲取業績失敗: " + err.message);
-        } else {
-          document.getElementById('loading').classList.add('hidden');
-          document.getElementById('mainContent').classList.remove('hidden');
-        }
+        showError("獲取業績失敗: " + err.message);
       }
     }
   </script>
