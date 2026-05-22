@@ -1,228 +1,220 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>快樂忘年會 - 來賓邀約登記</title>   
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-  </head>
-  <body class="p-4" style="height:100vh;background-image: url('https://i.imgur.com/F0nAnwj.png');background-size: 100% auto;background-repeat: repeat-y;">
-  <div id="loading" class="w-100 position-absolute bg-dark" style="z-index: 999;left: 0px;top: 0px;height: 105vh;display:none;">
-    <div class="position-absolute top-50 start-50 translate-middle" style="text-align: center;"\>
-    <div class="spinner-border text-primary" id="spinner" role="status" style="width: 5rem;height: 5rem;">
-    <span class="sr-only"></span>
-    </div>
-    <div id="mask" class="fs-1 text-white">登記中...</div>
-    </div>
-  </div>
-  <div style="width:100%;" class="justify-content-center">
-    <img src="https://i.imgur.com/DhFY9NM.png" style="width:100%"></img>
-    <div class="fs-1" style="font-weight: bold;color:#dfc175;align-self: center;text-align: center;">來賓邀約登記</div>
-  </div>
-  <div class="py-3">
-    <div id="prizes" class="text-dark mb-3" style="height: 100%;opacity: 0.85;">
-        <form onsubmit="return false;" class="row g-3 needs-validation">
-            <div class="input-group mb-3">
-                <span class="col-5 input-group-text justify-content-center" id="basic-addon3">姓名(代表人)</span>
-                <input type="text" class="col form-control" id="name" aria-describedby="basic-addon3" required>
-            </div>
-            <div class="input-group mb-3">
-                <span class="col-5 input-group-text justify-content-center" id="basic-addon3">服務單位</span>
-                <input type="text" class="col form-control" id="company" aria-describedby="basic-addon3" required>
-            </div>
-            <div class="input-group mb-3">
-                <span class="col-5 input-group-text justify-content-center" id="basic-addon3">職稱</span>
-                <input type="text" class="col form-control" id="title" aria-describedby="basic-addon3" required>
-            </div>
-            <div class="input-group mb-3">
-                <span class="col-5 input-group-text justify-content-center" id="basic-addon3">出席人數</span>
-                <input type="number" class="col form-control" id="qty" aria-describedby="basic-addon3" required>
-            </div>
-            <div class="input-group mb-3">
-                <span class="col-5 input-group-text justify-content-center">備註</span>
-                <textarea class="col form-control" aria-label="With textarea" id="note"></textarea>
-            </div>
-            <div class="input-group">
-                <input type="submit" class="w-100 btn btn-primary bg-primary" id="submit" value="送出" onclick="make_reserve()"></button>
-            </div>
-        </form>
-        
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>團購業績管理後台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #22c55e;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+
+  <div class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl mb-6">
+    <div class="p-6 border-b-4 border-green-500">
+      <div class="uppercase tracking-wide text-sm text-green-600 font-semibold mb-1">團購業績管理系統</div>
+      <p class="block mt-1 text-lg leading-tight font-medium text-black">管理員專用後台</p>
     </div>
   </div>
-  <div style="width:100%;position: absolute;bottom: 0px;left: 0px;" class="justify-content-center">
-    <img src="https://i.imgur.com/YsAKWQX.png" style="width:100%"></img>
+
+  <!-- 載入中畫面 -->
+  <div id="loading" class="max-w-md mx-auto bg-white rounded-xl shadow-md p-8 flex flex-col items-center justify-center">
+    <div id="spinner" class="loader mb-4"></div>
+    <div id="loadingText" class="text-gray-600 w-full text-center">正在初始化系統...</div>
+    <p id="errorMsg" class="text-red-500 text-sm mt-4 font-bold text-center whitespace-pre-line"></p>
   </div>
 
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script>
-    function getToken(liffId) {
-        return new Promise(function(resolve,reject){
-            liff.init({
-                        liffId: liffId,
-                        withLoginOnExternalBrowser: true
-                    }).then(function (data) {
-                liff.getProfile().then(function (profile) {
-                var params = {};
-                params['userId'] = profile.userId;
-                const accessToken =  liff.getAccessToken();
-                if (!accessToken) {
-                    params['accessToken'] = 'Error';
-                }
-                params['accessToken'] = accessToken;
-                //console.log(params);
-                resolve(params);
-                }).catch(function (error) {
-                window.alert("Error getting profile: " + error);
-                reject(params);
-                });
-            // }
-            });
-        });
-    };
+  <!-- 主要內容區 -->
+  <div id="mainContent" class="max-w-md mx-auto hidden space-y-4">
+    <!-- 管理員資訊 -->
+    <div class="bg-white rounded-xl shadow-md p-4 flex items-center space-x-4">
+      <img id="userPicture" class="w-12 h-12 rounded-full border border-gray-200" src="" alt="User Avatar">
+      <div>
+        <p id="userName" class="text-gray-900 font-bold"></p>
+        <p class="text-gray-500 text-xs">系統管理員</p>
+      </div>
+    </div>
+    <!-- 團主清單容器 -->
+    <div id="kolListContainer" class="space-y-4"></div>
+  </div>
 
-    function sendPost(url, _params) {
-        var form = document.createElement("form");
-        // 設定表單的一些屬性，包含網頁接收伺服器回應的頁面或框架
-        form.setAttribute("method", "post");
-        form.setAttribute("action", url);
-        //form.setAttribute("target", "Iframe1");
-        
-        // 建立隱藏的表單控制項
-        for (var key in _params) {
-            var hiddenField = document.createElement("input");
-            hiddenField.setAttribute("type", "hidden");
-            hiddenField.setAttribute("name", key);
-            hiddenField.setAttribute("value", _params[key]);
-            form.appendChild(hiddenField);
-            //console.log(key);
-        }
-        
-        // 隱藏的submit按鈕，預防瀏覽器不支援模糊的表單設計。（可不用）
-        var hiddenSubmit = document.createElement("input");
-        hiddenSubmit.setAttribute("type", "submit");
-        hiddenSubmit.setAttribute("style", "display:none;");
-        form.appendChild(hiddenSubmit);
-        
-        // 將表單加入網頁中
-        document.body.appendChild(form);
-        
-        // 送出請求
-        //form.submit();
-        return new Promise(function(resolve,reject){
-            fetch(`${url}`, {
-            method: "POST",
-            redirect: "follow", 
-            // mode: "no-cors", 
-            // cache: "no-cache",
-            headers: {
-                "Content-Type": "text/plain",
-            },
-            // credentials: "include",
-            body: JSON.stringify(
-                _params
-                // {"to_add": result.map(x=> [x, prize_target])}
-            )
-            })
-            .then(response => response.text())
-            .then(context => {
-            var data = JSON.parse(context);
-            resolve(data);
-            });
-        
-        })
-    };
+  <script>
+    // ======================================================================
+    // 動態變數：將透過網址參數讀取
+    // ======================================================================
+    let MY_LIFF_ID = ''; 
+    let GAS_API_URL = ''; 
 
-    var params = new URL(document.location.toString()).searchParams;
-    if (params.has("liffRedirectUri")) {
-        params = new URL(decodeURIComponent(params.get("liffRedirectUri"))).searchParams;
-    }
-
-    if (!params.has("liff") || !params.has("sid")) {
-        Swal.fire({
-                title: '系統錯誤',
-                text: "無效參數",
-                icon: "error"
-        });
-        pause
-    }
-
-    var liffId = params.get("liff");
-    var url = `https://script.google.com/macros/s/${params.get("sid")}/exec`;
-
-    function sys_error() {
-        Swal.fire({
-                title: '系統錯誤',
-                text: "請重新整理",
-                icon: "error",
-                timer: 5000
-        }).then(function(){
-            liff.closeWindow();
-        });
-    }
-
-    function make_reserve() {
-        // load_config();
-        document.getElementById("loading").style.display = "inline";
-        var params2 = {
-          "name": document.getElementById("name").value,
-          "company": document.getElementById("company").value,
-          "title": document.getElementById("title").value,
-          "qty": document.getElementById("qty").value,
-          "note": document.getElementById("note").value
-        };
-        getToken(liffId).then(function(params){
-            sendPost(`${url}?role=guest_reservation`, {...params, ...params2}).then(function(response){
-                if (response.result==="NoPermission") {
-                    Swal.fire({
-                        title: "權限錯誤",
-                        text: "您無存取權限，請聯繫管理員開通或登入其他帳號",
-                        icon: "error",
-                        showDenyButton: false,
-                        showCancelButton: false,
-                        confirmButtonText: "關閉"
-                    }).then(function() {
-                        liff.closeWindow();
-                    });
-                } else if (response.result==="Expired") {
-                    Swal.fire({
-                        title: "登記日已截止",
-                        text: "如仍需登記，請聯繫管理員！",
-                        icon: "error",
-                        showDenyButton: false,
-                        showCancelButton: false,
-                        confirmButtonText: "關閉"
-                    }).then(function() {
-                        liff.closeWindow();
-                    });
-                } else if (response.result==="OK") {
-                    document.getElementById("loading").style.display = "none";
-                    liff.sendMessages([
-                        response.msg
-                    ])
-                    .then(() => {
-                        liff.closeWindow();
-                    })
-                    .catch((err) => {
-                        Swal.fire({
-                            title: '系統錯誤',
-                            // text: JSON.stringify(response.msg),
-                            text: "請重新操作",
-                            icon: "error"
-                            // timer: 5000
-                        }).then(function(){
-                            liff.closeWindow();
-                        })
-                    });
-                    
-                }
-            });
-        }).catch(function (error) {
-            sys_error();
-        });
+    document.addEventListener("DOMContentLoaded", function() {
+      // 解析網址參數
+      let params = new URL(document.location.toString()).searchParams;
+      
+      // 處理 LINE LIFF 開啟時附加的 liffRedirectUri 參數包裝
+      if (params.has("liffRedirectUri")) {
+          params = new URL(decodeURIComponent(params.get("liffRedirectUri"))).searchParams;
       }
 
-</script>
-  </body>
+      // 檢查必要參數是否存在
+      if (!params.has("liff") || !params.has("sid")) {
+          showError("系統錯誤：無效的連結參數\n\n請確認網址是否包含 liff 與 sid 參數。\n範例：?liff=您的ID&sid=您的GAS_ID");
+          return;
+      }
+
+      // 設定變數
+      MY_LIFF_ID = params.get("liff");
+      GAS_API_URL = `https://script.google.com/macros/s/${params.get("sid")}/exec`;
+
+      // 參數驗證成功後開始初始化 LIFF
+      initializeLiff();
+    });
+
+    function showError(msg) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('loadingText').innerText = '系統發生錯誤';
+      document.getElementById('loadingText').classList.add('text-red-600');
+      document.getElementById('errorMsg').innerText = msg;
+    }
+
+    // 核心 API 呼叫模組
+    async function callGasApi(action, params = {}) {
+      try {
+        const url = new URL(GAS_API_URL);
+        url.searchParams.append('action', action);
+        Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+
+        const response = await fetch(url.toString(), { method: 'GET' });
+        return await response.json();
+      } catch (error) {
+        throw new Error("與資料庫連線失敗: " + error.message);
+      }
+    }
+
+    async function initializeLiff() {
+      try {
+        document.getElementById('loadingText').innerText = '正在連線 LINE 伺服器...';
+        await liff.init({ liffId: MY_LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+        } else {
+          document.getElementById('loadingText').innerText = '正在讀取試算表資料...';
+          const profile = await liff.getProfile();
+          
+          // 透過 API 呼叫後端
+          const response = await callGasApi('getAdminData', { uid: profile.userId });
+          
+          if (response.success) {
+            renderMainContent(profile, response.data);
+          } else {
+            showError("身分驗證失敗：" + response.message + "\n您的 UID: " + profile.userId);
+          }
+        }
+      } catch (err) {
+        showError("LIFF 初始化錯誤：" + err.message);
+      }
+    }
+
+    function renderMainContent(profile, kolData) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('mainContent').classList.remove('hidden');
+      
+      document.getElementById('userName').innerText = profile.displayName;
+      if (profile.pictureUrl) document.getElementById('userPicture').src = profile.pictureUrl;
+
+      const container = document.getElementById('kolListContainer');
+      container.innerHTML = '';
+
+      kolData.forEach(kol => {
+        const isBound = kol.uid !== "";
+        const statusBadge = isBound 
+          ? `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已綁定</span>`
+          : `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">未綁定</span>`;
+
+        let actionButtons = '';
+        if (isBound) {
+          actionButtons = `<button onclick="shareSales('${kol.name}')" class="mt-3 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded shadow transition duration-150">轉傳業績報表</button>`;
+        } else {
+          actionButtons = `<button onclick="generatePassCode('${kol.name}')" class="mt-3 w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded shadow transition duration-150">產生/查看綁定碼</button>`;
+        }
+
+        const card = `
+          <div class="bg-white rounded-xl shadow p-5 border border-gray-100">
+            <div class="flex justify-between items-center mb-2">
+              <h3 class="font-bold text-gray-800 text-lg">${kol.name}</h3>
+              ${statusBadge}
+            </div>
+            ${isBound ? `<p class="text-xs text-gray-400 mb-1">UID: ${kol.uid.substring(0,8)}...</p>` : ''}
+            ${kol.passCode && !isBound ? `<div class="bg-red-50 p-2 rounded mt-2 text-sm text-red-600 border border-red-100">請團主在機器人輸入：<br><span class="font-bold text-lg cursor-pointer" onclick="alert('已複製綁定指令'); navigator.clipboard.writeText('綁定 ${kol.passCode}');">綁定 ${kol.passCode}</span></div>` : ''}
+            ${actionButtons}
+          </div>
+        `;
+        container.innerHTML += card;
+      });
+    }
+
+    async function generatePassCode(kolName) {
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('mainContent').classList.add('hidden');
+      document.getElementById('loadingText').innerText = '正在產生專屬綁定碼...';
+      document.getElementById('spinner').style.display = 'block';
+
+      try {
+        const res = await callGasApi('createPassCode', { kolName: kolName });
+        if (res.success) {
+          alert(`產生成功！\n請團主在機器人輸入：\n綁定 ${res.passCode}`);
+          location.reload(); // 重新整理網頁
+        } else {
+          showError("產生失敗: " + res.message);
+        }
+      } catch(err) {
+        showError(err.message);
+      }
+    }
+
+    async function shareSales(kolName) {
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('mainContent').classList.add('hidden');
+      document.getElementById('loadingText').innerText = '正在計算業績與生成報表...';
+      document.getElementById('spinner').style.display = 'block';
+
+      try {
+        const res = await callGasApi('getSalesFlexMessageForLiff', { kolName: kolName });
+        
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('mainContent').classList.remove('hidden');
+        
+        if (!res.success) {
+          alert("錯誤: " + res.message);
+          return;
+        }
+
+        if (liff.isApiAvailable('shareTargetPicker')) {
+          await liff.shareTargetPicker([res.flexMessage]);
+        } else {
+          alert("您的裝置或 LINE 版本不支援 Share Target Picker 功能");
+        }
+      } catch(err) {
+        if(err.message.indexOf("canceled") === -1) {
+          showError("獲取業績失敗: " + err.message);
+        } else {
+          document.getElementById('loading').classList.add('hidden');
+          document.getElementById('mainContent').classList.remove('hidden');
+        }
+      }
+    }
+  </script>
+</body>
 </html>
