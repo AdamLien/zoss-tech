@@ -240,7 +240,7 @@
           openShareModal(
             '✅ 綁定碼產生成功！', 
             `已為【${kolName}】建立專屬邀請卡。<br><br><span class="text-xs text-gray-500">由於瀏覽器安全限制，請點擊下方按鈕以開啟好友分享選單。</span>`,
-            res.flexMessages,
+            [res.flexMessage],
             true
           );
         } else {
@@ -272,7 +272,7 @@
         openShareModal(
           '📊 報表生成完畢', 
           `【${kolName}】的業績報表已準備就緒。<br><br><span class="text-xs text-gray-500">由於瀏覽器安全限制，請點擊下方按鈕以開啟好友分享選單。</span>`,
-          [res.flexMessage],
+          res.flexMessages,
           false
         );
 
