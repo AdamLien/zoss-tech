@@ -1792,17 +1792,7 @@ window.onload = async function (e) {
         // load_config();
         getToken(liffId).then(function(params){
             sendPost(`${url}?role=list`, params).then(function(response){
-                if (typeof response.msg === "undefined") {
-                    Swal.fire({
-                            title: '系統錯誤',
-                            text: "請重新整理",
-                            icon: "error",
-                            timer: 5000
-                    }).then(function(){
-                        window.location = `https://liff.line.me/${liffId}`;
-                    })
-                } else {
-                  if (response.result==="NoPermission") {
+                if (response.result==="NoPermission") {
                     Swal.fire({
                       title: "權限錯誤",
                       text: "您無存取權限，請聯繫管理員開通",
@@ -1813,7 +1803,16 @@ window.onload = async function (e) {
                     }).then((result) => {
 			liff.closeWindow();
                     });
-                  } else if (response.result==="OK") {
+                } else if (typeof response.msg === "undefined") {
+                    Swal.fire({
+                            title: '系統錯誤',
+                            text: "請重新整理",
+                            icon: "error",
+                            timer: 5000
+                    }).then(function(){
+                        window.location = `https://liff.line.me/${liffId}`;
+                    })
+				} else if (response.result==="OK") {
 					          // genreport;
                     result = response.msg;
                     flex_msg = response.flex_msg;
@@ -1850,8 +1849,7 @@ window.onload = async function (e) {
                     document.getElementById("main").style.display = "inline";
 		    document.getElementById("loading").style.display = "none";
 			
-                  }
-                }
+	                  }
             });
         }).catch(function (error) {
           Swal.fire({

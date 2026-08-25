@@ -211,15 +211,12 @@
     if (!liff.isInClient()) {
         document.getElementById("loading").style.display = "inline";
         sys_error("網頁不支援外部瀏覽器，請使用手機LINE內建瀏覽器開啟");
-        pause
     } else if (!params.has("liff") || !params.has("sid")) {
         sys_error("無效參數");
-        pause
     } else if (params.has("liff.state")) {
         getToken(params.get("liff"));
     } else if (!params.has("uuid")){
         sys_error("無效參數");
-        pause
     } else {
         var uuid = params.get("uuid");
         var qrcode_mode = params.get("qrcode_mode") === "true" ? true : false;

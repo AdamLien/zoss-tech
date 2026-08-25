@@ -307,7 +307,9 @@
                 } else if (response.result==="OK") {
                     changeImage("ft_img", response.shared_ft_img);
                     changeImage("body", response.shared_bg_img);
-                    changeImage("logo", response.logo);
+                    if (response.logo) {
+                        changeImage("logo", response.logo);
+                    }
                     document.getElementById("loading").style.display = "none";
                     document.getElementById("process_info").innerHTML = "報到中...";
                 }
