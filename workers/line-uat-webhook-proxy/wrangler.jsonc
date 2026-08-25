@@ -3,6 +3,7 @@
   "name": "happy-line-uat-webhook-proxy",
   "main": "src/index.js",
   "compatibility_date": "2026-08-25",
+  "account_id": "1a7e6ff6daed67e387013c15ef87a1d3",
   "vars": {
     "APP_SCRIPT_URL": "https://script.google.com/macros/s/AKfycbyj3WQTfglYGkx_s0TEq80AFW4qUiyD70kDIXk5qZjOhlPLnQmP7OpJ8iwX18C7xF9M/exec"
   }
