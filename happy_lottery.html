@@ -1663,7 +1663,9 @@
 						  }
 						});
 	                  } else if (response.result==="OK") {
-	                    changeImage("bg_img", response.lottery_sys_img);
+	                    if (response.lottery_sys_img) {
+	                      changeImage("bg_img", response.lottery_sys_img);
+	                    }
 	                    text = response.config;
 	                    load_config();
 						document.getElementById("loading").style.display = "none";
