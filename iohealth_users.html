@@ -1768,12 +1768,10 @@ function add_x(x) {
                 text: "無效參數",
                 icon: "error"
         });
-        return;
-    }
-
-    var liffId = params.get("liff");
-    var target_liff = params.get("target_liff");
-    var url = `https://script.google.com/macros/s/${params.get("sid")}/exec`;
+    } else {
+        var liffId = params.get("liff");
+        var target_liff = params.get("target_liff");
+        var url = `https://script.google.com/macros/s/${params.get("sid")}/exec`;
 
     function sys_error() {
         Swal.fire({
@@ -1860,8 +1858,9 @@ window.onload = async function (e) {
           }).then(function(){
               liff.closeWindow();
           })
-			});
-      };
+				});
+	      };
+    }
 </script>
   </body>
 </html>
