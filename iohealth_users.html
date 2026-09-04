@@ -1590,12 +1590,12 @@ function _add_user() {
 	      })
 	      .catch(error => {
 		Swal.showValidationMessage(
-		  `系統錯誤，請重新操作!`
+		  `新增失敗：請確認目前是在手機 LINE 或 LIFF 內開啟，並具備 UAT 管理權限後再操作。`
 		)
 	      })
 	}).catch(error => {
 	Swal.showValidationMessage(
-	  `系統錯誤，請重新操作!`
+	  `無法取得 LINE 身份：請改用手機 LINE 或 LIFF 開啟本頁；Chrome 僅能在已登入且具 UAT 管理權限時使用。`
 	)
 	})
 }
@@ -1686,13 +1686,13 @@ function add_x(x) {
 		      })
 		      .catch(error => {
 		        Swal.showValidationMessage(
-		          `系統錯誤，請重新操作!`
+		          `操作失敗：請確認目前是在手機 LINE 或 LIFF 內開啟，並具備 UAT 管理權限後再操作。`
 		        )
 		      })
 	    }).catch(error => {
 		Swal.showValidationMessage(
-		  `系統錯誤，請重新操作!`
-		)
+		  `無法取得 LINE 身份：請改用手機 LINE 或 LIFF 開啟本頁；Chrome 僅能在已登入且具 UAT 管理權限時使用。`
+		  )
 	      })
 	  },
 	  allowOutsideClick: () => !Swal.isLoading()
@@ -1764,8 +1764,8 @@ function add_x(x) {
 
     if (!params.has("liff") || !params.has("target_liff") || !params.has("sid")) {
         Swal.fire({
-                title: '系統錯誤',
-                text: "無效參數",
+                title: '請使用 LINE 或 LIFF 開啟',
+                text: "此頁需要 LINE 身份確認。請用手機 LINE 開啟員工綁定管理，或使用有效的 LIFF 連結；Chrome 直接開啟可能會顯示此提示。",
                 icon: "error"
         });
     } else {
@@ -1776,7 +1776,7 @@ function add_x(x) {
     function sys_error() {
         Swal.fire({
                 title: '系統錯誤',
-                text: "請重新整理",
+                text: "請改用手機 LINE 或 LIFF 開啟本頁。Chrome 只有在已完成 LINE 登入且具備 UAT 管理權限時，才能測試管理頁。",
                 icon: "error",
                 timer: 5000
         }).then(function(){
@@ -1803,8 +1803,8 @@ window.onload = async function (e) {
                     });
                 } else if (typeof response.msg === "undefined") {
                     Swal.fire({
-                            title: '系統錯誤',
-                            text: "請重新整理",
+                            title: '請使用 LINE 或 LIFF 開啟',
+                            text: "目前無法取得 UAT 管理資料。請用手機 LINE 或 LIFF 開啟，並確認登入的是具備 UAT 管理權限的帳號；Chrome 直接開啟不代表 SID 錯誤。",
                             icon: "error",
                             timer: 5000
                     }).then(function(){
@@ -1851,8 +1851,8 @@ window.onload = async function (e) {
             });
         }).catch(function (error) {
           Swal.fire({
-                  title: '系統錯誤',
-                  text: "請重新操作",
+                  title: '請使用 LINE 或 LIFF 開啟',
+                  text: "無法完成 LINE 身份確認。請改用手機 LINE 或 LIFF 開啟；Chrome 僅可在已登入且具 UAT 管理權限時測試管理頁。",
                   icon: "error",
                   timer: 5000
           }).then(function(){
