@@ -352,7 +352,9 @@
             allTables.forEach(el => {
                 const name = el.getAttribute('data-name').toLowerCase();
                 const id = el.getAttribute('data-id');
-                if (val !== "" && (name.includes(val) || id === val)) {
+                const isTableNumber = /^\d+$/.test(val);
+                const matched = isTableNumber ? Number(id) === Number(val) : name.includes(val);
+                if (val !== "" && matched) {
                     el.classList.add('highlight-pulse');
                     matches.push(el);
                 } else {
