@@ -183,6 +183,43 @@
         });
     }
 
+    // Legacy backend templates can contain missing image URLs and undefined
+    // branding. Rebuild only the returned receipt text; never invent prize data.
+    function buildRedeemReceipt(message) {
+      var lines = [];
+      function collect(node) {
+        if (!node || typeof node !== 'object') return;
+        if (node.type === 'text' && typeof node.text === 'string') {
+          var text = node.text.trim();
+          if (text && text !== '核銷證明' && !/undefined|null/i.test(text)) lines.push(text);
+        }
+        if (Array.isArray(node.contents)) node.contents.forEach(collect);
+        else if (node.contents) collect(node.contents);
+        if (node.body) collect(node.body);
+      }
+      collect(message);
+      if (!lines.length) return {type:'text', text:'核銷已完成。請至「我的領獎碼」確認核銷狀態。'};
+      return {type:'flex', altText:'忘年會｜獎項核銷證明', contents:{
+        type:'bubble', body:{type:'box', layout:'vertical', spacing:'sm', contents:[
+          {type:'text', text:'核銷已完成', weight:'bold', size:'xl', color:'#276749'},
+          {type:'text', text:lines.join('\n').slice(0,4000), wrap:true, size:'md', color:'#222222'}
+        ]}
+      }};
+    }
+
+    async function sendRedeemReceipt(message) {
+      try {
+        await liff.sendMessages([buildRedeemReceipt(message)]);
+      } catch (err) {
+        await Swal.fire({title:'核銷已完成',
+          text:'核銷證明傳送失敗，但不代表核銷失敗。請至「我的領獎碼」確認狀態，勿重新掃碼。',
+          icon:'warning'});
+        return;
+      }
+      await Swal.fire({title:'核銷已完成', text:'核銷證明已傳送，請勿重複領取。', icon:'success'});
+      liff.closeWindow();
+    }
+
       var params = new URL(document.location.toString()).searchParams;
       if (params.has("liffRedirectUri")) {
         params = new URL(decodeURIComponent(params.get("liffRedirectUri"))).searchParams;
@@ -222,23 +259,7 @@
           			  if (response.result==="Existed") {
           			    sys_error("您已曾經核銷此獎項!");
           			  } else if (response.result==="OK") {
-          				liff.sendMessages([
-          					response.msg
-          				])
-          				.then(() => {
-          					liff.closeWindow();
-          				})
-          				.catch((err) => {
-          					Swal.fire({
-          						  title: '系統錯誤',
-          						text: JSON.stringify(response.msg),
-          						  // text: "請重新操作",
-          						  icon: "error"
-          						  // timer: 5000
-          				  }).then(function(){
-          					  liff.closeWindow();
-          				  })
-          				});
+                    return sendRedeemReceipt(response.msg);
           			  } else if (response.result==="Redeemed") {
 					  sys_error("此獎項已完成核銷，請勿重複執行!");
 				  } else if (response.result==="NoPrize") {
