@@ -1,310 +1,80 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>快樂忘年會 - 中獎查詢</title>   
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-  </head>
-  <body class="p-4" style="height:100vh;background-image: url('https://i.imgur.com/F0nAnwj.png');background-size: 100% auto;background-repeat: repeat-y;">
-  <div id="loading" class="w-100 position-absolute bg-dark" style="z-index: 999;left: 0px;top: 0px;height: 105vh;">
-    <div class="position-absolute top-50 start-50 translate-middle" style="text-align: center;"\>
-    <div class="spinner-border text-primary" id="spinner" role="status" style="width: 5rem;height: 5rem;">
-    <span class="sr-only"></span>
-    </div>
-    <div id="mask" class="fs-1 text-white">查詢中...</div>
-    </div>
-  </div>
-  <div style="width:100%;height:10.5%;" class="justify-content-center">
-    <img id="logo" src="https://i.imgur.com/1ldltPx.png" style="height:100%"></img>
-<!--     <div class="fs-1" style="font-weight: bold;color:#dfc175;align-self: center;text-align: center;">中獎查詢</div> -->
-  </div>
-  <div style="height: 85%;" class="py-3">
-<!--     <div id="prizes" class="position-absolute top-50 start-50 translate-middle card text-dark bg-light mb-3" style="width: 18rem;opacity: 0.85;"> -->
-    <div class="h-100 col d-flex align-items-center justify-content-center">
-    <div id="prizes" class="card text-dark bg-light mb-3" style="max-height: 100%;width: 100%;opacity: 0.85;overflow: auto;">
-        <div class="card-header">
-            <h2 class="card-title text-center">恭喜您中獎</h2>
-            <h6 class="card-subtitle mb-2 text-muted text-center"><span id="group">桶別</span> - <span id="shop">分店</span></h6>
-        </div>
-    </div>
-    </div>
-  </div>
-  <div style="width:100%;" class="justify-content-center">
-    <img id="ft_img" src="https://i.imgur.com/P5D20vk.png" style="width:100%"></img>
-<!--     <div class="fs-1" style="font-weight: bold;color:#dfc175;align-self: center;text-align: center;">中獎查詢</div> -->
-  </div>
-
+<!doctype html>
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
+<title>忘年會・我的領獎碼</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#151515;color:#f9efd8;font-family:system-ui,sans-serif;padding:28px 16px}main{max-width:480px;margin:auto}h1{font-size:26px;margin:8px 0}header{margin-bottom:24px}.subtitle{color:#d6b66b;font-size:14px;letter-spacing:2px}.muted{color:#bdb5a6;font-size:14px;line-height:1.6}button{font:inherit;border:0;border-radius:12px;background:#806426;color:white;padding:14px 20px;cursor:pointer;width:100%}button:disabled{opacity:.5;cursor:default}.card-body{background:white;color:#252525;border-radius:18px;padding:24px;margin:16px 0;text-align:center}.award-title{font-size:22px;margin-bottom:8px;font-weight:700}.status{font-size:20px;font-weight:700;margin:18px 0}.qr{display:inline-block;padding:20px;background:white;max-width:100%}.qr img,.qr canvas{max-width:100%;height:auto}.note{font-size:14px;color:#666;line-height:1.6}.redeemed{color:#247245}#loading{text-align:center;padding:18px 0}#spinner{display:inline-block;width:24px;height:24px;border:3px solid #76613b;border-top-color:#f9efd8;border-radius:50%;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+</style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script>
-    function getToken(liffId) {
-        return new Promise(function(resolve,reject){
-            liff.init({
-                        liffId: liffId,
-                        withLoginOnExternalBrowser: true
-                    }).then(function (data) {
-                liff.getProfile().then(function (profile) {
-                var params = {};
-                params['userId'] = profile.userId;
-                const accessToken =  liff.getAccessToken();
-                if (!accessToken) {
-                    params['accessToken'] = 'Error';
-                }
-                params['accessToken'] = accessToken;
-                //console.log(params);
-                resolve(params);
-                }).catch(function (error) {
-                window.alert("Error getting profile: " + error);
-                reject(params);
-                });
-            // }
-            });
-        });
-    };
-
-    function sendPost(url, _params) {
-        var form = document.createElement("form");
-        // 設定表單的一些屬性，包含網頁接收伺服器回應的頁面或框架
-        form.setAttribute("method", "post");
-        form.setAttribute("action", url);
-        //form.setAttribute("target", "Iframe1");
-        
-        // 建立隱藏的表單控制項
-        for (var key in _params) {
-            var hiddenField = document.createElement("input");
-            hiddenField.setAttribute("type", "hidden");
-            hiddenField.setAttribute("name", key);
-            hiddenField.setAttribute("value", _params[key]);
-            form.appendChild(hiddenField);
-            //console.log(key);
-        }
-        
-        // 隱藏的submit按鈕，預防瀏覽器不支援模糊的表單設計。（可不用）
-        var hiddenSubmit = document.createElement("input");
-        hiddenSubmit.setAttribute("type", "submit");
-        hiddenSubmit.setAttribute("style", "display:none;");
-        form.appendChild(hiddenSubmit);
-        
-        // 將表單加入網頁中
-        document.body.appendChild(form);
-        
-        // 送出請求
-        //form.submit();
-        return new Promise(function(resolve,reject){
-            fetch(`${url}`, {
-            method: "POST",
-            redirect: "follow", 
-            // mode: "no-cors", 
-            // cache: "no-cache",
-            headers: {
-                "Content-Type": "text/plain",
-            },
-            // credentials: "include",
-            body: JSON.stringify(
-                _params
-                // {"to_add": result.map(x=> [x, prize_target])}
-            )
-            })
-            .then(response => response.text())
-            .then(context => {
-            var data = JSON.parse(context);
-            resolve(data);
-            });
-        
-        })
-    };
-
-    var params = new URL(document.location.toString()).searchParams;
-    if (params.has("liffRedirectUri")) {
-    params = new URL(decodeURIComponent(params.get("liffRedirectUri"))).searchParams;
-    }
-    if (!params.has("liff") || !params.has("sid")) {
-    Swal.fire({
-            title: '系統錯誤',
-            text: "無效參數",
-            icon: "error"
-    });
-    pause
-    }
-
-    var liffId = params.get("liff");
-    var url = `https://script.google.com/macros/s/${params.get("sid")}/exec`;
-
-    function sys_error() {
-        Swal.fire({
-                title: '系統錯誤',
-                text: "請重新整理",
-                icon: "error",
-                timer: 5000
-        }).then(function(){
-            liff.closeWindow();
-        });
-    }
-
-    function redeem_process(_type, prize_no) {
-        getToken(liffId).then(function(params){
-            liff.scanCodeV2().then((sn) => {
-                if (sn.value) {
-                    document.getElementById("mask").textContent = "核銷中...";
-                    document.getElementById("loading").style.display = "inline";
-                    sendPost(`${url}?role=prize_redeem`, {"sn":sn.value.replace(/\n/g, ''), "type":_type, "prize_no":prize_no, ...params}).then(function(response){
-                        if (typeof response.msg !== "undefined") {
-                            sys_error();
-                        } else {
-                            if (response.result==="NoPrize") {
-                                Swal.fire({
-                                    title: "系統錯誤",
-                                    text: "查無您的中獎紀錄，請使用中獎者本人手機查詢(需完成快樂福利社綁定)。",
-                                    icon: "error",
-                                    showDenyButton: false,
-                                    showCancelButton: false,
-                                    confirmButtonText: "關閉"
-                                }).then(function() {
-                                    liff.closeWindow();
-                                });
-                            } else if (response.result==="PrizeNoError") {
-                                Swal.fire({
-                                    title: "獎項錯誤",
-                                    text: "此獎項序號無法與帳號匹配，請洽工作人員處理。",
-                                    icon: "error",
-                                    showDenyButton: false,
-                                    showCancelButton: false,
-                                    confirmButtonText: "關閉"
-                                }).then(function() {
-                                    document.getElementById("loading").style.display = "none";
-                                });
-                            } else if (response.result==="Redeemed") {
-                                Swal.fire({
-                                    title: "重複核銷",
-                                    text: "已有核銷紀錄，請勿重複核銷。",
-                                    icon: "info",
-                                    showDenyButton: false,
-                                    showCancelButton: false,
-                                    confirmButtonText: "關閉"
-                                }).then(function() {
-                                    document.getElementById("loading").style.display = "none";
-                                });
-                            } else if (response.result==="IncorrectType") {
-                                Swal.fire({
-                                    title: "核銷類型不匹配",
-                                    text: "請使用正確的核銷按鈕。",
-                                    icon: "info",
-                                    showDenyButton: false,
-                                    showCancelButton: false,
-                                    confirmButtonText: "關閉"
-                                }).then(function() {
-                                    document.getElementById("loading").style.display = "none";
-                                });
-                            } else if (response.result==="OK") {
-                                Swal.fire({
-                                    title: "核銷完成",
-                                    icon: "success",
-                                    showDenyButton: false,
-                                    showCancelButton: false,
-                                    timer: 5000,
-                                    confirmButtonText: "關閉"
-                                }).then(function() {
-                                    var element = document.getElementById(`${_type}_redeem_${prize_no}`);
-                                    element.textContent = `已核銷`;
-                                    element.classList.remove("btn-primary");
-                                    element.classList.add("btn-secondary");
-                                    element.disabled=true;
-                                    document.getElementById("loading").style.display = "none";
-                                });
-                            }
-                        }
-                    });
-                }
-            })
-            .catch((error) => {
-                console.log("error", error);
-            });
-        }).catch(function (error) {
-            sys_error();
-        });
-    }
-
-    function add_prize(prize, prize_type) {
-        var _name = prize.name.replace(/(\d)(?=(\d{3})+$)/g, '$1,');
-        var _style = "btn-primary";
-        var _btn = "掃碼核銷";
-        var _disabled = "";
-        if ( prize.redeem!=="") {
-            _style = "btn-secondary";
-            _btn = "已核銷";
-            _disabled = "disabled";
-        }
-        document.getElementById("prizes").innerHTML += 
-        `<div class="card-body">
-            <div>獎項：<span class="text-reset" id="prize_name">${_name}</span></div>
-            <div>序號：<span class="text-reset" id="prize_no">${prize.no}</span></div>
-            <button id="${prize_type}_redeem_${prize.no}" type="button" class="mt-3 btn ${_style} w-100 btn-dark" onclick="redeem_process('${prize_type}', '${prize.no}')" ${_disabled}>${_btn}</button>
-        </div>`;
-    }
-
-    function changeImage(_name, src) {
-      const imageElement = document.getElementById(_name);
-      if (_name === "bg_img") {
-        imageElement.style.backgroundImage = `url('${src}')`;
-      } else if (imageElement) {
-        imageElement.src = src;
-      } else if (_name === "body") {
-        const body = document.body;
-        body.style.backgroundImage = `url('${src}')`;
-      }
-    }
-
-    window.onload = async function (e) {
-        // load_config();
-        getToken(liffId).then(function(params){
-            sendPost(`${url}?role=prize_check`, params).then(function(response){
-                if (typeof response.msg !== "undefined") {
-                    sys_error();
-                } else {
-                  if (response.result==="NoPrize") {
-                    Swal.fire({
-                        title: "系統錯誤",
-                        text: "查無您的中獎紀錄，請使用中獎者本人手機查詢(需完成福利社LINE@綁定)。",
-                        icon: "error",
-                        showDenyButton: false,
-                        showCancelButton: false,
-                        confirmButtonText: "關閉"
-                    }).then(function() {
-                        liff.closeWindow();
-                    });
-                  } else if (response.result==="OK") {
-                      changeImage("ft_img", response.shared_ft_img);
-                      changeImage("logo", response.logo);
-                      changeImage("body", response.shared_bg_img);
-                      document.getElementById("loading").style.display = "none";
-                      document.getElementById("group").textContent = response.group;
-                      document.getElementById("shop").textContent = response.shop;
-
-                      if (response.prize) {
-                        add_prize(response.prize, "prize");
-                      }
-                      if (response.special) {
-                        add_prize(response.special, "special");
-                      }
-                      if (response.entire) {
-                        add_prize(response.entire, "entire");
-                      }
-                      if (response.lottery) {
-                        for(i=0;i<response.lottery.length;i++){
-                            add_prize(response.lottery[i], "lottery");
-                        }
-                      }
-                      
-                  }
-                }
-            });
-        }).catch(function (error) {
-            sys_error();
-        });
-      };
-
-</script>
-  </body>
-</html>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head><body><main>
+<header><div class="subtitle">忘年會・領獎服務</div><h1>我的領獎碼</h1><div class="muted"><span id="group"></span> <span id="shop"></span></div></header>
+<div id="loading" role="status" aria-live="polite"><div id="spinner"></div><p id="mask">確認身分與核銷狀態中…</p></div>
+<section id="prizes" aria-live="polite"></section>
+<button id="refresh" type="button" onclick="refreshPrizes()">重新確認核銷狀態</button>
+<p class="muted">領獎碼只供本人使用，請勿轉傳。出示畫面不代表已領取；以工作人員核銷確認為準。</p>
+</main><script>
+var params=new URL(document.location.toString()).searchParams;
+if(params.has('liffRedirectUri'))params=new URL(params.get('liffRedirectUri')).searchParams;
+var liffId=params.get('liff'),sid=params.get('sid');
+var url='https://script.google.com/macros/s/'+encodeURIComponent(sid||'')+'/exec';
+var loginPromise,requestVersion=0,refreshTimer;
+function withTimeout(promise,ms){var timer;return Promise.race([promise,new Promise(function(_,reject){timer=setTimeout(function(){reject(new Error('Timeout'));},ms);})]).finally(function(){clearTimeout(timer);});}
+async function getToken(id){
+ if(!id||!sid)throw new Error('MissingParameters');
+ if(!loginPromise)loginPromise=withTimeout(liff.init({liffId:id,withLoginOnExternalBrowser:true}),20000).catch(function(e){loginPromise=null;throw e;});
+ await loginPromise;
+ var accessToken=liff.getAccessToken();
+ if(!accessToken)throw new Error('LoginRequired');
+ return {accessToken:accessToken};
+}
+async function sendPost(target,body){
+ var controller=new AbortController(),timer=setTimeout(function(){controller.abort();},20000);
+ try{var response=await fetch(target,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body),cache:'no-store',signal:controller.signal});
+ if(!response.ok)throw new Error('RequestFailed');return await response.json();
+ }finally{clearTimeout(timer);}
+}
+function textNode(tag,text,cls){var el=document.createElement(tag);el.textContent=String(text);if(cls)el.className=cls;return el;}
+function add_prize(prize,type){
+ var card=document.createElement('article');card.className='card-body';
+ card.appendChild(textNode('div',prize.name,'award-title'));card.appendChild(textNode('div','紅包編號：'+prize.no));
+ if(prize.redeem){card.appendChild(textNode('div','已核銷','status redeemed'));card.appendChild(textNode('p','此獎項已完成核銷，不能重複領取。','note'));}
+ else if(prize.qrMode===true){
+  if(typeof prize.qr==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(prize.qr)){
+   card.appendChild(textNode('div','未核銷・請出示 QR Code','status'));
+   var box=document.createElement('div');box.className='qr';box.setAttribute('aria-label','本獎項領獎 QR Code');card.appendChild(box);
+   new QRCode(box,{text:prize.qr,width:224,height:224,correctLevel:QRCode.CorrectLevel.M});
+   card.appendChild(textNode('p','請向領獎處出示此碼。工作人員確認核銷完成後，再領取獎品。','note'));
+  }else card.appendChild(textNode('p','暫無有效領獎碼，請洽工作人員。','status'));
+ }else{
+  var button=textNode('button','掃碼核銷');button.type='button';button.onclick=function(){legacyRedeem(type,prize.no);};card.appendChild(button);
+ }
+ document.getElementById('prizes').appendChild(card);
+}
+async function legacyRedeem(type,no){
+ if(!window.confirm('即將開啟掃碼核銷，請在領獎處操作。'))return;
+ try{var auth=await getToken(liffId),sn=await liff.scanCodeV2();if(!sn.value)return;
+ var result=await sendPost(url+'?role=prize_redeem',Object.assign({sn:sn.value.replace(/\n/g,''),type:type,prize_no:no},auth));
+ window.alert(result.result==='OK'?'核銷完成':result.result==='Redeemed'?'已核銷':'核銷未完成，請洽工作人員。');
+ }catch(e){window.alert('無法確認核銷結果，請洽工作人員，勿重複操作。');}await refreshPrizes();
+}
+async function refreshPrizes(){
+ var version=++requestVersion;clearTimeout(refreshTimer);
+ document.getElementById('prizes').replaceChildren();
+ document.getElementById('loading').style.display='block';document.getElementById('spinner').style.display='inline-block';
+ document.getElementById('mask').textContent='確認身分與核銷狀態中…';document.getElementById('refresh').disabled=true;
+ try{
+  var auth=await getToken(liffId),response=await sendPost(url+'?role=prize_check',auth);
+  if(version!==requestVersion||document.hidden)return;
+  if(response.result==='NoPrize'){document.getElementById('mask').textContent='查無您的中獎紀錄，請確認使用中獎者的 LINE 帳號。';return;}
+  if(response.result!=='OK')throw new Error('QueryFailed');
+  document.getElementById('group').textContent=response.group||'';document.getElementById('shop').textContent=response.shop||'';
+  if(response.qrMode===true&&Array.isArray(response.awards))response.awards.forEach(function(p){add_prize(p,p.type);});
+  else{['prize','special','entire'].forEach(function(t){if(response[t])add_prize(response[t],t);});(response.lottery||[]).forEach(function(p){add_prize(p,'lottery');});}
+  document.getElementById('loading').style.display='none';
+ }catch(e){if(version!==requestVersion)return;document.getElementById('prizes').replaceChildren();document.getElementById('mask').textContent='無法確認領獎狀態，已隱藏 QR Code。請重新整理或稍後再試。';
+ }finally{if(version===requestVersion){document.getElementById('spinner').style.display='none';document.getElementById('refresh').disabled=false;if(!document.hidden)refreshTimer=setTimeout(refreshPrizes,30000);}}
+}
+document.addEventListener('visibilitychange',function(){if(document.hidden){++requestVersion;clearTimeout(refreshTimer);document.getElementById('prizes').replaceChildren();}else refreshPrizes();});
+window.onload=refreshPrizes;
+</script></body></html>
