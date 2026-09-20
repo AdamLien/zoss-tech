@@ -8,15 +8,17 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head><body><main>
-<header><div class="subtitle">忘年會・領獎服務</div><h1>我的領獎碼</h1><div class="muted"><span id="group"></span> <span id="shop"></span></div></header>
+<header><div class="subtitle">忘年會・領獎服務</div><h1 id="heading">我的領獎碼</h1><div class="muted"><span id="group"></span> <span id="shop"></span></div></header>
 <div id="loading" role="status" aria-live="polite"><div id="spinner"></div><p id="mask">確認身分與核銷狀態中…</p></div>
 <section id="prizes" aria-live="polite"></section>
 <button id="refresh" type="button" onclick="refreshPrizes()">重新確認核銷狀態</button>
-<p class="muted">領獎碼只供本人使用，請勿轉傳。出示畫面不代表已領取；以工作人員核銷確認為準。</p>
+<p class="muted" id="usage">領獎碼只供本人使用，請勿轉傳。出示畫面不代表已領取；以工作人員核銷確認為準。</p>
 </main><script>
 var params=new URL(document.location.toString()).searchParams;
 if(params.has('liffRedirectUri'))params=new URL(params.get('liffRedirectUri')).searchParams;
 var liffId=params.get('liff'),sid=params.get('sid');
+var scanMode=params.get('mode')==='scan'||new URL('https://example.invalid/'+(params.get('liff.state')||'')).searchParams.get('mode')==='scan';
+if(scanMode){document.title='忘年會・掃碼領獎';document.getElementById('heading').textContent='掃碼領獎';document.getElementById('usage').textContent='請選擇自己的獎項，按「掃碼核銷」掃描紅包袋上的 QR Code。確認核銷成功後再領取；已核銷獎項不得重複領取。';}
 var url='https://script.google.com/macros/s/'+encodeURIComponent(sid||'')+'/exec';
 var loginPromise,requestVersion=0,refreshTimer;
 function withTimeout(promise,ms){var timer;return Promise.race([promise,new Promise(function(_,reject){timer=setTimeout(function(){reject(new Error('Timeout'));},ms);})]).finally(function(){clearTimeout(timer);});}
@@ -39,7 +41,7 @@ function add_prize(prize,type){
  var card=document.createElement('article');card.className='card-body';
  card.appendChild(textNode('div',prize.name,'award-title'));card.appendChild(textNode('div','紅包編號：'+prize.no));
  if(prize.redeem){card.appendChild(textNode('div','已核銷','status redeemed'));card.appendChild(textNode('p','此獎項已完成核銷，不能重複領取。','note'));}
- else if(prize.qrMode===true){
+ else if(prize.qrMode===true&&!scanMode){
   if(typeof prize.qr==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(prize.qr)){
    card.appendChild(textNode('div','未核銷・請出示 QR Code','status'));
    var box=document.createElement('div');box.className='qr';box.setAttribute('aria-label','本獎項領獎 QR Code');card.appendChild(box);
@@ -47,7 +49,7 @@ function add_prize(prize,type){
    card.appendChild(textNode('p','請向領獎處出示此碼。工作人員確認核銷完成後，再領取獎品。','note'));
   }else card.appendChild(textNode('p','暫無有效領獎碼，請洽工作人員。','status'));
  }else{
-  var button=textNode('button','掃碼核銷');button.type='button';button.onclick=function(){legacyRedeem(type,prize.no);};card.appendChild(button);
+  var button=textNode('button','掃碼核銷');button.type='button';button.onclick=function(){return legacyRedeem(type,prize.no);};card.appendChild(button);
  }
  document.getElementById('prizes').appendChild(card);
 }
