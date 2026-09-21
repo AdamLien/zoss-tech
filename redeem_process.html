@@ -18,7 +18,7 @@ var params=new URL(document.location.toString()).searchParams;
 if(params.has('liffRedirectUri'))params=new URL(params.get('liffRedirectUri')).searchParams;
 var liffId=params.get('liff'),sid=params.get('sid');
 var scanMode=params.get('mode')==='scan'||new URL('https://example.invalid/'+(params.get('liff.state')||'')).searchParams.get('mode')==='scan';
-if(scanMode){document.title='忘年會・掃碼領獎';document.getElementById('heading').textContent='掃碼領獎';document.getElementById('usage').textContent='請選擇自己的獎項，按「掃碼核銷」掃描紅包袋上的 QR Code。確認核銷成功後再領取；已核銷獎項不得重複領取。';}
+if(scanMode){document.title='忘年會・掃碼領獎';document.getElementById('heading').textContent='掃碼領獎';document.getElementById('usage').textContent='掃描驗證成功即完成領取核銷，請在領獎處操作。請掃描紅包袋背面的 QR Code，不需先選獎項。';}
 var url='https://script.google.com/macros/s/'+encodeURIComponent(sid||'')+'/exec';
 var loginPromise,requestVersion=0,refreshTimer;
 function withTimeout(promise,ms){var timer;return Promise.race([promise,new Promise(function(_,reject){timer=setTimeout(function(){reject(new Error('Timeout'));},ms);})]).finally(function(){clearTimeout(timer);});}
@@ -77,6 +77,44 @@ async function refreshPrizes(){
  }catch(e){if(version!==requestVersion)return;document.getElementById('prizes').replaceChildren();document.getElementById('mask').textContent='無法確認領獎狀態，已隱藏 QR Code。請重新整理或稍後再試。';
  }finally{if(version===requestVersion){document.getElementById('spinner').style.display='none';document.getElementById('refresh').disabled=false;if(!document.hidden)refreshTimer=setTimeout(refreshPrizes,30000);}}
 }
-document.addEventListener('visibilitychange',function(){if(document.hidden){++requestVersion;clearTimeout(refreshTimer);document.getElementById('prizes').replaceChildren();}else refreshPrizes();});
-window.onload=refreshPrizes;
+var envelopeBusy=false;
+function showEnvelopeResult(result){
+ var box=document.getElementById('prizes');box.replaceChildren();
+ var card=textNode('article','','card-body');
+ var titles={OK:'核銷已完成',Redeemed:'已核銷，請勿重複領取',NoPrize:'這不是您的中獎紅包，無法核銷',PrizeNoError:'無效或無法辨識的紅包碼',IncorrectType:'獎項設定有誤，請洽工作人員',Busy:'系統忙碌，尚未核銷，請稍後再試',Cancelled:'已取消掃描，未核銷',Unknown:'無法確認核銷結果，請洽工作人員，勿直接重複操作'};
+ card.appendChild(textNode('div',titles[result.result]||titles.Unknown,'status'));
+ if(result.result==='OK'||result.result==='Redeemed'){
+  card.appendChild(textNode('div','獎項：'+result.prize));card.appendChild(textNode('div','紅包編號：'+result.no));
+  card.appendChild(textNode('p',result.redeemedAt?'核銷時間：'+result.redeemedAt:'已完成核銷，時間請洽工作人員。','note'));
+ }
+ box.appendChild(card);return card;
+}
+async function scanEnvelope(){
+ if(envelopeBusy)return;envelopeBusy=true;document.getElementById('refresh').disabled=true;
+ try{
+  var auth=await getToken(liffId);
+  var scanned=await liff.scanCodeV2();
+  if(!scanned||!scanned.value){showEnvelopeResult({result:'Cancelled'});return;}
+  var code=String(scanned.value).trim();
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(code)){showEnvelopeResult({result:'PrizeNoError'});return;}
+  document.getElementById('prizes').replaceChildren(textNode('p','核銷處理中，請勿重複操作…'));
+  var result=await sendPost(url+'?role=prize_redeem_scan',Object.assign({sn:code},auth));
+  var card=showEnvelopeResult(result);
+  if(result.result==='OK'){
+   try{await liff.sendMessages([{type:'text',text:'核銷已完成\n獎項：'+result.prize+'\n紅包編號：'+result.no+'\n核銷時間：'+result.redeemedAt}]);
+    card.appendChild(textNode('p','核銷證明已傳送。','note'));
+   }catch(notifyError){card.appendChild(textNode('p','核銷已完成，但 LINE 證明未送達。請出示此頁，勿重複核銷。','note'));}
+  }
+ }catch(error){showEnvelopeResult({result:'Unknown'});}
+ finally{envelopeBusy=false;document.getElementById('refresh').disabled=false;}
+}
+async function initEnvelopeScan(){
+ document.getElementById('refresh').textContent='掃描紅包袋 QR Code';
+ document.getElementById('refresh').onclick=scanEnvelope;
+ document.getElementById('refresh').disabled=true;
+ try{await getToken(liffId);document.getElementById('loading').style.display='none';document.getElementById('refresh').disabled=false;}
+ catch(error){document.getElementById('spinner').style.display='none';document.getElementById('mask').textContent='無法完成 LINE 登入，請從 LINE 重新開啟。';}
+}
+document.addEventListener('visibilitychange',function(){if(scanMode)return;if(document.hidden){++requestVersion;clearTimeout(refreshTimer);document.getElementById('prizes').replaceChildren();}else refreshPrizes();});
+window.onload=scanMode?initEnvelopeScan:refreshPrizes;
 </script></body></html>
