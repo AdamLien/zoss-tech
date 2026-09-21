@@ -91,16 +91,19 @@
                 resolve(params);
                 }).catch(function (error) {
                 window.alert("Error getting profile: " + error);
-                reject(params);
+                reject(error);
                 });
-            });
+            }).catch(reject);
         });
     };
 
     function sendPost(url, _params) {
         // ... (保持原有的 form submit fallback 邏輯) ...
         return new Promise(function(resolve,reject){
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 30000);
             fetch(`${url}`, {
+            signal: controller.signal,
             method: "POST",
             redirect: "follow", 
             headers: {
@@ -112,7 +115,7 @@
             .then(context => {
             var data = JSON.parse(context);
             resolve(data);
-            });
+            }).catch(reject).finally(() => clearTimeout(timeout));
         })
     };
 
@@ -205,11 +208,13 @@
                         }).then(function() {
                             liff.closeWindow();
                         });
-                    } else if (response.result==="Expired") {
-                        Swal.fire({
-                            title: "系統錯誤",
-                            text: "無法登記，以超過登記截止日。",
-                            icon: "error",
+                } else if (response.result==="Expired") {
+                    document.getElementById('loading').style.display = 'none';
+                    showPurchaseClosed(response);
+                    Swal.fire({
+                        title: "購買已截止",
+                        text: "已超過購買截止時間，無法登記。" + (response.deadline ? ` 截止時間：${response.deadline}（台灣時間）` : ''),
+                        icon: "info",
                             showDenyButton: false,
                             showCancelButton: false,
                             confirmButtonText: "關閉"
@@ -263,13 +268,13 @@
     }
 
     // 生成按鈕介面
-    function pre_order() {
+    function pre_order(max = 50) {
         var html = '<h5 class="text-center my-3 fw-bold" style="color: #444; text-shadow: 0 1px 0 #fff;">請登記「欲購買的威力彩張數」，每張 $100 元</h5>';
         
         html += '<div class="grid-container">';
         
         // 產生 1 ~ 50 的金屬質感按鈕
-        for (var i = 1; i <= 50; i++) {
+        for (var i = 1; i <= max; i++) {
             // 修改：onclick 改為呼叫 confirm_order
             html += `<button type="button" class="btn btn-metal" onclick="confirm_order(${i})">${i}</button>`;
         }
@@ -297,6 +302,24 @@
     }
 
     window.onload = async function (e) {
+        // The new status endpoint is deployed on UAT only. Other deployments retain their flow.
+        if (params.get('sid') === 'AKfycbyj3WQTfglYGkx_s0TEq80AFW4qUiyD70kDIXk5qZjOhlPLnQmP7OpJ8iwX18C7xF9M') {
+            try {
+                const identity = await getToken(liffId);
+                document.getElementById('mask').textContent = '確認購買截止日...';
+                const response = await sendPost(`${url}?role=lottery_pre_order_status`, identity);
+                if (response.result === 'OK' && Number.isSafeInteger(response.max) && response.max >= 0) {
+                    pre_order(response.max);
+                } else {
+                    showPurchaseClosed(response);
+                }
+            } catch (error) {
+                showPurchaseClosed({result:'Unavailable'});
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+            return;
+        }
         getToken(liffId).then(function(params){
             document.getElementById("loading").style.display = "none";
             pre_order();
@@ -330,6 +353,18 @@
             sys_error();
         });
       };
+
+    function showPurchaseClosed(response) {
+        const order = document.getElementById('order');
+        order.innerHTML = '';
+        order.style.padding = '24px';
+        order.style.whiteSpace = 'pre-line';
+        order.textContent = response.result === 'Expired'
+            ? `購買已截止\n截止時間：${response.deadline || '請洽工作人員'}（台灣時間）\n目前無法登記購買。`
+            : ['NotMember','NoPermission'].includes(response.result)
+              ? '您尚未完成福利社 LINE 綁定，請先完成綁定後再購買。'
+              : '目前無法確認購買設定，請稍後重新開啟或聯絡工作人員。';
+    }
 
 </script>
   </body>
