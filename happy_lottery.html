@@ -891,6 +891,7 @@
                       </h1>
                     </div>
                 </div>
+                <div id="draw_save_status" role="status" aria-live="polite" style="display: none;text-align: center;color: white;font-size: 1.5rem;">正在確認中獎紀錄</div>
                 <div class="align-items-center justify-content-center" id="drawn" style="display: none;">
                     <div style="text-align: center;width: 100%;">
                         <span id="prize_name" class="btn btn-success btn-lg"></span>
@@ -922,6 +923,7 @@
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script>
       var is_ready = false;
+      var drawAnimationSeconds = 3;
       var params = new URL(document.location.toString()).searchParams;
       if (params.has("liffRedirectUri")) {
         params = new URL(decodeURIComponent(params.get("liffRedirectUri"))).searchParams;
@@ -1353,6 +1355,9 @@
         document.getElementById('prize_sn').disabled = true;
         document.getElementById('box_no').disabled = true;
         document.getElementById('shoot').disabled = true;
+        var drawFinished = false;
+        var saveFinished = false;
+        document.getElementById('draw_save_status').style.display = 'none';
         try {
         // Save concurrently with animation, but do not unlock or confirm winners until saved.
 	    const saveTask = getToken(liffId).then(function(params) {
@@ -1368,10 +1373,10 @@
                 if (typeof chk !== 'string' || !chk.includes('[prizes]')) throw new Error('SaveNotConfirmed');
                 return chk;
             });
-	    });
+	    }).finally(function() { saveFinished = true; });
 	
 	    // ==========================================
-	    // 步驟 2: 播放動畫 (營造 3 秒氣氛)
+	    // 步驟 2: 依系統參數播放動畫，存檔較慢時改顯示等待訊息
 	    // ==========================================
 	    
 	    // 顯示老虎機區塊
@@ -1382,14 +1387,21 @@
 	    // 確保你的 choose 函式會加上 .span-10 class 讓它開始轉
 	    // choose(toggle, ["...", "...", "..."]); // 這裡看你想顯示什麼文字
 	
-	    // *** 關鍵：讓程式在此「暫停」3秒，讓動畫跑，但不會卡住背景的 fetch ***
-        const saved = await Promise.all([saveTask, wait(3000)]);
+        var seconds = Number(drawAnimationSeconds);
+        if (!Number.isFinite(seconds) || seconds <= 0) seconds = 3;
+        const animationTask = wait(seconds * 1000).then(function() {
+            // A failed save may have ended this draw before the timer fired.
+            if (drawFinished) return;
+            document.getElementById('drawing_single').style.display = 'none';
+            if (!saveFinished) document.getElementById('draw_save_status').style.display = 'block';
+        });
+        const saved = await Promise.all([saveTask, animationTask]);
         text = saved[0];
         load_config(true);
         refresh_draw_counts();
 	
 	    // ==========================================
-	    // 步驟 3: 3秒後，顯示結果
+	    // 步驟 3: 動畫結束且存檔確認後，顯示結果
 	    // ==========================================
 	    
 	    // 隱藏老虎機 / 顯示結果列表
@@ -1420,6 +1432,8 @@
             document.getElementById('drawing_single').style.display = 'none';
             await Swal.fire({title:'存檔未確認', text:'尚未確認本輪中獎紀錄已存檔，計數不會增加。請先查核中獎名單，勿直接重抽。', icon:'error'});
         } finally {
+            drawFinished = true;
+            document.getElementById('draw_save_status').style.display = 'none';
             drawSaving = false;
             document.getElementById('prize_sn').disabled = false;
             document.getElementById('box_no').disabled = false;
@@ -1710,6 +1724,7 @@
 	                      changeImage("bg_img", response.lottery_sys_img);
 	                    }
 	                    text = response.config;
+	                    drawAnimationSeconds = response.draw_animation_seconds;
 	                    load_config();
 						document.getElementById("loading").style.display = "none";
 	                  }
