@@ -1048,10 +1048,12 @@
                 shop_list[tmp["店名"]]=tmp;
                 break
               case '[winner_list]':
+                var previousWinner = winner_list[tmp["身分證號"]];
+                tmp["中獎獎項"] = [...new Set([...(previousWinner ? previousWinner["中獎獎項"] || [previousWinner["獎項編號"]] : []), tmp["獎項編號"]])];
                 winner_list[tmp["身分證號"]]=tmp;
                 break
               case '[lottery_buyer_list]':
-                lottery_buyer_list[tmp["抽獎序號"]]=tmp["身分證號"];
+                if (tmp["抽獎序號"]) lottery_buyer_list[String(Number(tmp["抽獎序號"]))]=tmp["身分證號"];
                 break
               case '[special_winner_list]':
                 special_winner_list[tmp["身分證號"]]=tmp;
@@ -1108,7 +1110,7 @@
               //   entire_name_list[tmp["身分證號"]]=tmp;
               //   break
               case '[lottery_winner_list]':
-                lottery_winner_list[tmp["抽獎序號"]]=tmp;
+                if (tmp["抽獎序號"]) lottery_winner_list[String(Number(tmp["抽獎序號"]))]=tmp;
                 break
               case '[entire_winner_list]':
                 entire_winner_list[tmp["身分證號"]]=tmp;
@@ -1357,6 +1359,8 @@
         document.getElementById('shoot').disabled = true;
         var drawFinished = false;
         var saveFinished = false;
+        var saveConfirmed = false;
+        var safeToDraw = false;
         document.getElementById('draw_save_status').style.display = 'none';
         try {
         // Save concurrently with animation, but do not unlock or confirm winners until saved.
@@ -1369,8 +1373,12 @@
 	        })
 	        .then(response => { if (!response.ok) throw new Error('SaveRequestFailed'); return response.text(); })
             .then(context => {
-                var chk = JSON.parse(context)['to_add'];
+                var reply = JSON.parse(context);
+                if (reply.to_add === 'Failed') throw new Error('DrawRejected');
+                if (reply.result === 'NoPermission') throw new Error('NoPermission');
+                var chk = reply.to_add;
                 if (typeof chk !== 'string' || !chk.includes('[prizes]')) throw new Error('SaveNotConfirmed');
+                saveConfirmed = true;
                 return chk;
             });
 	    }).finally(function() { saveFinished = true; });
@@ -1427,10 +1435,20 @@
 	    var drawn_list = document.getElementById("drawn_list");
 	    const _type = draw_type_dict[prizeData["獎項編號"][0]];
 	    drawn_list.innerHTML = gen_list(result, _type);
+	    safeToDraw = true;
 	
         } catch (error) {
             document.getElementById('drawing_single').style.display = 'none';
-            await Swal.fire({title:'存檔未確認', text:'尚未確認本輪中獎紀錄已存檔，計數不會增加。請先查核中獎名單，勿直接重抽。', icon:'error'});
+            if (saveConfirmed) {
+                await Swal.fire({title:'中獎紀錄已存檔', text:'更新中獎畫面時發生錯誤，請查核中獎名單並重新載入頁面，勿重抽本輪。', icon:'warning'});
+            } else if (error.message === 'DrawRejected') {
+                await Swal.fire({title:'本輪未存入', text:'後端拒絕本輪抽獎，可能已中獎或剩餘名額已變更。請重新載入最新名單再操作。', icon:'warning'});
+            } else if (error.message === 'NoPermission') {
+                await Swal.fire({title:'抽獎權限不足', text:'請確認目前 LINE 帳號的抽獎權限。', icon:'error'});
+            } else {
+                await Swal.fire({title:'存檔未確認', text:'尚未確認本輪中獎紀錄已存檔，請先查核中獎名單並重新載入頁面，勿直接重抽。', icon:'error'});
+            }
+            console.error('[lottery-draw] ' + (saveConfirmed ? 'display_failed' : error.message === 'DrawRejected' ? 'rejected' : error.message === 'NoPermission' ? 'permission_denied' : 'confirmation_failed'));
         } finally {
             drawFinished = true;
             document.getElementById('draw_save_status').style.display = 'none';
@@ -1438,7 +1456,7 @@
             document.getElementById('prize_sn').disabled = false;
             document.getElementById('box_no').disabled = false;
             var box = prizes[prize_target];
-            document.getElementById('shoot').disabled = Number(box['已抽獎數']) >= Number(box['名額']);
+            document.getElementById('shoot').disabled = !safeToDraw || Number(box['已抽獎數']) >= Number(box['名額']);
         }
 	}
 
@@ -1482,21 +1500,22 @@
           //抽獎中
           const qty = Math.min(_qty, quota - draw_limit);
               
+          const winnersFor = type => Object.entries(winner_list).filter(([key, value]) => (value["中獎獎項"] || [value["獎項編號"]]).some(code => code && code[0] === type)).map(([key]) => key);
           var winner_dict = {
-            'A': [name_list, Object.entries(winner_list).filter(([key, value]) => value["獎項編號"][0]==="A").map(([key, value]) => key)],
+            'A': [name_list, winnersFor('A')],
             'L': [lottery_buyer_list, Object.keys(lottery_winner_list)],
-            'S': [special_name_list, Object.entries(winner_list).filter(([key, value]) => value["獎項編號"][0]==="S").map(([key, value]) => key)],
-            'P': [gift_name_list, Object.entries(winner_list).filter(([key, value]) => value["獎項編號"][0]==="P").map(([key, value]) => key)],
-            'B': [bonus_name_list, Object.entries(winner_list).filter(([key, value]) => value["獎項編號"][0]==="B").map(([key, value]) => key)],
-            'T': [table_name_list, Object.entries(winner_list).filter(([key, value]) => value["獎項編號"][0]==="T").map(([key, value]) => key)],
-            'I': [idnumber_name_list, Object.entries(winner_list).filter(([key, value]) => value["獎項編號"][0]==="I").map(([key, value]) => key)]
+            'S': [special_name_list, winnersFor('S')],
+            'P': [gift_name_list, winnersFor('P')],
+            'B': [bonus_name_list, winnersFor('B')],
+            'T': [table_name_list, winnersFor('T')],
+            'I': [idnumber_name_list, winnersFor('I')]
           }
 
           if (prize_target[0]==="L") {
             // const lottery_winner = Object.keys(lottery_winner_list).filter(y=> lottery_winner_list[y]["獎項編號"][0]==="L");
 	          const lottery_winner = winner_dict[prize_target[0]][1];
             // const target_list = Object.keys(lottery_buyer_list).filter(x=> !lottery_winner.includes(lottery_buyer_list[x]));
-            const target_list = Object.keys(winner_dict[prize_target[0]][0]).filter(x=> !lottery_winner.includes(x));
+            const target_list = Object.keys(winner_dict[prize_target[0]][0]).filter(x=> !lottery_winner.includes(x) && entire_name_list[lottery_buyer_list[x]]);
             document.getElementById("drawing_single").style.display = "flex";
             choose([target_list, ...toggle.slice(1)], ["序號","店名","中獎人"]);
             target_list.random_lottery(qty).then(x=> { onSuccess(x); });
