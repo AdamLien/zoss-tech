@@ -1020,7 +1020,7 @@
       var group_list = {};
       var toggle;
     
-      function load_config() {
+      function load_config(preserveSelection = false) {
         lines = text.split("\n");
         for(i=0;i<lines.length;i++){
           if (lines[i].match(/^\[prizes|shop_list|winner_list|name_list|lottery_buyer_list|special_name_list|gift_name_list|bonus_name_list|table_name_list|idnumber_name_list|entire_name_list|lottery_winner_list|special_winner_list|entire_winner_list|group_list|lottery_winner_list|gift_winner_list|bonus_winner_list|table_winner_list|idnumber_winner_list\]$/g)) {
@@ -1123,7 +1123,7 @@
             }
           }
         }
-        gen_prizes_options();
+        if (!preserveSelection) gen_prizes_options();
         if (last_winner_list) {
             //中獎名單
             prize_target = Object.values(last_winner_list)[0]['獎項編號'];
@@ -1177,7 +1177,7 @@
           var option = document.createElement("option");
           option.value = _prize;
           if (quota > used) {
-            option.innerHTML = `${_prize.replace(/(\d)(?=(\d{3})+$)/g, '$1,')} (名額:${quota}，已抽:${used})`;
+            option.innerHTML = `${_prize.replace(/(\d)(?=(\d{3})+$)/g, '$1,')} (名額:${quota}，已抽:${used}，剩餘:${quota-used})`;
           } else {
             option.innerHTML = `${_prize.replace(/(\d)(?=(\d{3})+$)/g, '$1,')} (名額:${quota}，完成抽獎)`;
             option.disabled = true;
@@ -1210,7 +1210,7 @@
           }
           
           if (quota > used) {
-            option.innerHTML = `${box["桶別"]} (${_group}名額:${quota}，已抽:${used})`;
+            option.innerHTML = `${box["桶別"]} (${_group}名額:${quota}，已抽:${used}，剩餘:${quota-used})`;
           } else {
             option.innerHTML = `${box["桶別"]} (${_group}名額:${quota}，完成抽獎)`;
             option.disabled = true;
@@ -1308,17 +1308,53 @@
 	const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 	
 	// 2. 修改 onSuccess
-	async function onSuccess(result) { // 注意：這裡加了 async
+      var drawSaving = false;
+
+      function refresh_draw_counts() {
+        // Update existing options without resetting the selected award or hiding winners.
+        Array.from(document.getElementById('prize_sn').options).forEach(function(option) {
+          var boxes = prizes_dict[option.value];
+          if (!boxes) return;
+          var quota = Object.values(boxes).reduce((sum, box) => sum + Number(box['名額']), 0);
+          var used = Object.values(boxes).reduce((sum, box) => sum + Number(box['已抽獎數']), 0);
+          option.innerHTML = `${option.value.replace(/(\d)(?=(\d{3})+$)/g, '$1,')} (名額:${quota}，已抽:${used}，剩餘:${Math.max(0, quota-used)})`;
+          option.disabled = used >= quota;
+        });
+        Array.from(document.getElementById('box_no').options).forEach(function(option) {
+          var box = prizes[option.value];
+          if (!box) return;
+          var quota = Number(box['名額']), used = Number(box['已抽獎數']);
+          var group = group_list[box['桶別']] ? `${group_list[box['桶別']]}，` : '';
+          option.innerHTML = `${box['桶別']} (${group}名額:${quota}，已抽:${used}，剩餘:${Math.max(0, quota-used)})`;
+          option.disabled = used >= quota;
+        });
+        var selectedQty = document.querySelector('input[name="qty"]:checked');
+        var qty = selectedQty && selectedQty.value;
+        gen_draw_qty_options();
+        var retained = document.querySelector(`input[name="qty"][value="${qty}"]`);
+        if (retained) retained.checked = true;
+      }
+
+	async function onSuccess(result) {
 	    const draw_type_dict = {
 	        'A': 'prize', 'L': 'lottery', 'S': 'special', 'P': 'gift',
 	        'B': 'bonus', 'T': 'table', 'I': 'idnumber'
 	    };
 	    const prize_target = document.getElementById("box_no").selectedOptions[0].value;
-	
-	    // ==========================================
-	    // 步驟 1: 啟動背景存檔 (Fire and Forget)
-	    // ==========================================
-	    // 我們把它存在一個變數，但「不使用 await」等它，讓它在背景跑
+        if (!result.length) {
+            drawSaving = false;
+            document.getElementById('drawing_single').style.display = 'none';
+            document.getElementById('prize_sn').disabled = false;
+            document.getElementById('box_no').disabled = false;
+            await Swal.fire({title:'無可抽獎同仁', text:'本桶符合資格且尚未中獎的同仁已抽完，請選擇其他桶別。', icon:'info'});
+            return;
+        }
+        drawSaving = true;
+        document.getElementById('prize_sn').disabled = true;
+        document.getElementById('box_no').disabled = true;
+        document.getElementById('shoot').disabled = true;
+        try {
+        // Save concurrently with animation, but do not unlock or confirm winners until saved.
 	    const saveTask = getToken(liffId).then(function(params) {
 	        return fetch(url, {
 	            method: "POST",
@@ -1326,19 +1362,12 @@
 	            headers: { "Content-Type": "text/plain" },
 	            body: JSON.stringify({ "to_add": result.map(x => [x, prize_target]), ...params })
 	        })
-	        .then(response => response.text())
-	        .then(context => {
-	            console.log("背景存檔完成:", context);
-	            var chk = JSON.parse(context)["to_add"];
-	            if (chk === "Failed") {
-	                // 只有存檔失敗才跳警告，不然就默默成功
-	                Swal.fire({ title: "系統錯誤", text: "存檔異常，請截圖目前畫面！", icon: "error" });
-	            } else {
-	                text = chk; // 更新本地 Config
-	                load_config(); // 若不影響畫面，可不執行
-					gen_prizes_options();
-	            }
-	        });
+	        .then(response => { if (!response.ok) throw new Error('SaveRequestFailed'); return response.text(); })
+            .then(context => {
+                var chk = JSON.parse(context)['to_add'];
+                if (typeof chk !== 'string' || !chk.includes('[prizes]')) throw new Error('SaveNotConfirmed');
+                return chk;
+            });
 	    });
 	
 	    // ==========================================
@@ -1354,7 +1383,10 @@
 	    // choose(toggle, ["...", "...", "..."]); // 這裡看你想顯示什麼文字
 	
 	    // *** 關鍵：讓程式在此「暫停」3秒，讓動畫跑，但不會卡住背景的 fetch ***
-	    await wait(3000); 
+        const saved = await Promise.all([saveTask, wait(3000)]);
+        text = saved[0];
+        load_config(true);
+        refresh_draw_counts();
 	
 	    // ==========================================
 	    // 步驟 3: 3秒後，顯示結果
@@ -1384,11 +1416,20 @@
 	    const _type = draw_type_dict[prizeData["獎項編號"][0]];
 	    drawn_list.innerHTML = gen_list(result, _type);
 	
-	    // (選用) 可以在這裡再次確認 saveTask 是否出錯，但通常不需要，
-	    // 因為上面 saveTask 的 .then 已經處理了錯誤提示。
+        } catch (error) {
+            document.getElementById('drawing_single').style.display = 'none';
+            await Swal.fire({title:'存檔未確認', text:'尚未確認本輪中獎紀錄已存檔，計數不會增加。請先查核中獎名單，勿直接重抽。', icon:'error'});
+        } finally {
+            drawSaving = false;
+            document.getElementById('prize_sn').disabled = false;
+            document.getElementById('box_no').disabled = false;
+            var box = prizes[prize_target];
+            document.getElementById('shoot').disabled = Number(box['已抽獎數']) >= Number(box['名額']);
+        }
 	}
 
       async function lucky_draw() {
+        if (drawSaving) return;
         // if (typeof window.happy_lottery_tab === "function") {
         //   window.happy_lottery_tab();
         // }
@@ -1396,6 +1437,8 @@
 		if (!_chk) {
 			return
 		}
+        if (drawSaving) return;
+        drawSaving = true;
         document.getElementById('prize_sn').disabled = true;
         document.getElementById('shoot').disabled = true;
         //即將開獎
